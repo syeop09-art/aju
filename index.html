@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynh4vHpRleA0jMZVFDglWfB/Z4QY=" crossorigin="">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" crossorigin="anonymous" referrerpolicy="no-referrer">
   <style>
     :root{--bg:#080a09;--panel:#121513;--panel2:#191d1a;--line:#292e2a;--acid:#ccff00;--text:#f5f7f5;--muted:#8f9892;--danger:#ff5e5e;--cyan:#63e6e2;--radius:24px}
     *{box-sizing:border-box} html{background:#050605} body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -10%,#263000 0,transparent 28%),#050605;color:var(--text);font-family:"Inter","Noto Sans KR",sans-serif;-webkit-tap-highlight-color:transparent}
@@ -28,7 +28,21 @@
     .segmented{display:grid;grid-template-columns:1fr 1fr;background:#111411;border-radius:17px;padding:4px;margin-bottom:14px;border:1px solid var(--line)}.segmented button{border:0;background:transparent;color:var(--muted);border-radius:13px;padding:12px;font-weight:800}.segmented button.active{background:var(--acid);color:#080a09}
     .panel{display:none}.panel.active{display:block}.big-select{display:grid;grid-template-columns:1fr 1fr;gap:10px}.big-select button{height:100px;text-align:left;position:relative;overflow:hidden}.big-select i{display:block;font-size:22px;margin-bottom:20px}.big-select.active button{}
     .metric-main{text-align:center;padding:24px 10px}.metric-main .distance{font-size:64px;line-height:1;font-weight:900;letter-spacing:-4px}.metric-main .unit{color:var(--muted);font-size:12px}.run-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:20px}.run-grid div{background:#0d0f0e;border-radius:16px;padding:13px 7px}.run-grid strong{display:block;font-size:18px}.run-grid small{font-size:9px;color:var(--muted)}
-    .map-card{padding:8px;overflow:hidden;position:relative}.map-head{display:flex;justify-content:space-between;align-items:center;padding:8px 10px 12px}.map-head strong{font-size:13px}.map-status{font-size:9px;font-weight:800;color:var(--acid);background:#293300;border:1px solid #4b5f00;border-radius:99px;padding:6px 8px}.map-status.warn{color:#ffd56a;background:#332b10;border-color:#63521a}.map-status.live{color:#080a09;background:var(--acid);border-color:var(--acid)}#runMap{height:245px;border-radius:18px;background:#1a1e1b;overflow:hidden}.map-hint{padding:10px 8px 4px;color:var(--muted);font-size:10px;line-height:1.5}.leaflet-container{font-family:"Inter","Noto Sans KR",sans-serif}.leaflet-control-attribution{font-size:8px!important;background:#0b0d0ccc!important;color:#aeb5b0!important}.leaflet-control-attribution a{color:var(--acid)!important}.route-pin{width:18px!important;height:18px!important;border-radius:50%;background:var(--acid);border:4px solid #fff;box-shadow:0 0 0 6px #ccff0040}
+    .map-card{padding:8px;overflow:hidden;position:relative}.map-head{display:flex;justify-content:space-between;align-items:center;padding:8px 10px 12px}.map-head strong{font-size:13px}.map-status{font-size:9px;font-weight:800;color:var(--acid);background:#293300;border:1px solid #4b5f00;border-radius:99px;padding:6px 8px}.map-status.warn{color:#ffd56a;background:#332b10;border-color:#63521a}.map-status.live{color:#080a09;background:var(--acid);border-color:var(--acid)}#runMap{height:245px;border-radius:18px;background:#1a1e1b;overflow:hidden;position:relative;isolation:isolate}.map-hint{padding:10px 8px 4px;color:var(--muted);font-size:10px;line-height:1.5}.leaflet-container{font-family:"Inter","Noto Sans KR",sans-serif}.leaflet-control-attribution{font-size:8px!important;background:#0b0d0ccc!important;color:#aeb5b0!important}.leaflet-control-attribution a{color:var(--acid)!important}.route-pin{width:18px!important;height:18px!important;border-radius:50%;background:var(--acid);border:4px solid #fff;box-shadow:0 0 0 6px #ccff0040}
+    /* CDN 스타일이 차단되더라도 타일 레이어 좌표가 무너지지 않도록 Leaflet 핵심 레이아웃을 내장합니다. */
+    #runMap .leaflet-pane,#runMap .leaflet-tile,#runMap .leaflet-marker-icon,#runMap .leaflet-marker-shadow,#runMap .leaflet-tile-container,#runMap .leaflet-pane>svg,#runMap .leaflet-pane>canvas,#runMap .leaflet-zoom-box,#runMap .leaflet-image-layer,#runMap .leaflet-layer{position:absolute;left:0;top:0}
+    #runMap .leaflet-tile,#runMap .leaflet-marker-icon,#runMap .leaflet-marker-shadow{user-select:none;-webkit-user-drag:none}
+    #runMap .leaflet-tile{width:256px;height:256px;visibility:hidden}#runMap .leaflet-tile-loaded{visibility:inherit}
+    #runMap .leaflet-map-pane canvas{z-index:100}#runMap .leaflet-map-pane svg{z-index:200}#runMap .leaflet-tile-pane{z-index:200}#runMap .leaflet-overlay-pane{z-index:400}#runMap .leaflet-shadow-pane{z-index:500}#runMap .leaflet-marker-pane{z-index:600}#runMap .leaflet-tooltip-pane{z-index:650}#runMap .leaflet-popup-pane{z-index:700}
+    #runMap .leaflet-map-pane svg,#runMap .leaflet-map-pane canvas{position:absolute}#runMap .leaflet-zoom-animated{transform-origin:0 0}
+    #runMap .leaflet-control{position:relative;z-index:800;pointer-events:auto}
+    #runMap .leaflet-top,#runMap .leaflet-bottom{position:absolute;z-index:1000;pointer-events:none}
+    #runMap .leaflet-top{top:0}#runMap .leaflet-right{right:0}#runMap .leaflet-bottom{bottom:0}#runMap .leaflet-left{left:0}
+    #runMap .leaflet-control{float:left;clear:both}#runMap .leaflet-right .leaflet-control{float:right}
+    #runMap .leaflet-top .leaflet-control{margin-top:10px}#runMap .leaflet-bottom .leaflet-control{margin-bottom:10px}#runMap .leaflet-left .leaflet-control{margin-left:10px}#runMap .leaflet-right .leaflet-control{margin-right:10px}
+    #runMap .leaflet-control-zoom a{display:block;width:30px;height:30px;line-height:30px;text-align:center;background:#111411;color:var(--text);text-decoration:none;border-bottom:1px solid var(--line)}
+    #runMap .leaflet-control-zoom a:first-child{border-radius:8px 8px 0 0}#runMap .leaflet-control-zoom a:last-child{border:0;border-radius:0 0 8px 8px}
+    #runMap img.leaflet-tile,#runMap img.leaflet-marker-icon,#runMap img.leaflet-marker-shadow{max-width:none!important;max-height:none!important}
     .field{margin-bottom:10px}.field label{font-size:10px;color:var(--muted);font-weight:700;display:block;margin:0 0 6px 3px}.input{width:100%;border:1px solid var(--line);background:#0c0f0d;color:var(--text);border-radius:14px;padding:13px;outline:none}.input:focus{border-color:var(--acid)}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
     .day-scroll{display:flex;overflow:auto;gap:7px;padding:2px 1px 10px;scrollbar-width:none}.day-chip{min-width:46px;border:1px solid var(--line);color:var(--muted);background:var(--panel);padding:10px 8px;border-radius:14px;font-size:11px;font-weight:800}.day-chip.active{background:var(--acid);color:#080a09;border-color:var(--acid)}.workout-list{display:grid;gap:8px}.workout{border:1px solid var(--line);background:#111411;border-radius:17px;padding:14px;text-align:left;color:white}.workout.active{border-color:var(--acid)}.workout strong,.workout small{display:block}.workout small{color:var(--muted);margin-top:5px}
     .guide{border-left:3px solid var(--acid);padding-left:12px;font-size:12px;line-height:1.7;color:#c9ceca}.timer{font-size:48px;font-weight:900;text-align:center;font-variant-numeric:tabular-nums;margin:12px}.set-dots{display:flex;justify-content:center;gap:8px}.set-dots span{width:9px;height:9px;border-radius:50%;background:#343934}.set-dots span.done{background:var(--acid)}.faq details{border-top:1px solid var(--line);padding:12px 0;font-size:12px}.faq summary{font-weight:700;cursor:pointer}.faq p{color:var(--muted);line-height:1.6;margin:9px 0 0}
@@ -85,7 +99,7 @@
   <nav><button data-tab="workout"><i class="fa-solid fa-person-running"></i><span>운동</span></button><button data-tab="diet"><i class="fa-solid fa-utensils"></i><span>식단관리</span></button><button class="home-tab active" data-tab="home"><i class="fa-solid fa-house"></i><span>홈</span></button><button data-tab="store"><i class="fa-solid fa-bag-shopping"></i><span>스토어</span></button><button data-tab="group"><i class="fa-solid fa-ranking-star"></i><span>그룹</span></button></nav>
 </div>
 <div class="toast" id="toast"></div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 function localDateKey(date=new Date()){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
@@ -95,7 +109,7 @@ const savedProfile=loadProfile(), activityIsToday=savedProfile.activityDate===to
 const state={points:Number.isFinite(savedProfile.points)?savedProfile.points:2500,checked:savedProfile.checkinDate===todayKey,run:null,seconds:0,km:0,gymDay:0,workout:0,set:1,timer:null,dietDay:0,rank:'national',anomaly:false,demoMode:false,workoutComplete:false,rewardLedger:savedProfile.rewardLedger||{},todayGymCalories:activityIsToday?(savedProfile.todayGymCalories||0):0};
 const titles={workout:'운동',diet:'식단관리',home:'홈',store:'스토어',group:'그룹'};
 const MAP_CONFIG={provider:'openstreetmap',apiKey:'',defaultCenter:[37.2636,127.0286],defaultZoom:15,tileUrl:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',attribution:'&copy; OpenStreetMap contributors'};
-let runMap=null,runnerMarker=null,destinationMarker=null,routeLine=null,watchId=null,lastPosition=null,routePoints=[],mapInitialized=false;
+let runMap=null,runnerMarker=null,destinationMarker=null,routeLine=null,watchId=null,lastPosition=null,routePoints=[],mapInitialized=false,mapResizeObserver=null;
 function persistState(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({points:state.points,checkinDate:state.checked?todayKey:null,rewardLedger:state.rewardLedger,activityDate:todayKey,todayGymCalories:state.todayGymCalories}))}catch{}}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._id);t._id=setTimeout(()=>t.classList.remove('show'),2600)}
 function updatePoints(){$('#points').textContent=state.points.toLocaleString('ko-KR')}
@@ -108,16 +122,20 @@ $('#checkin').onclick=()=>{if(state.checked)return toast('오늘은 이미 출�
 
 function formatTime(s){return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`}
 function setMapStatus(text,type=''){$('#mapStatus').textContent=text;$('#mapStatus').className=`map-status ${type}`.trim()}
+function refreshRunMap(){if(runMap)runMap.invalidateSize({pan:false,animate:false})}
 function ensureRunMap(){
   if(!window.L){setMapStatus('지도 연결 대기','warn');return}
   if(!mapInitialized){
-    runMap=L.map('runMap',{zoomControl:true}).setView(MAP_CONFIG.defaultCenter,MAP_CONFIG.defaultZoom);
+    runMap=L.map('runMap',{zoomControl:true,preferCanvas:true}).setView(MAP_CONFIG.defaultCenter,MAP_CONFIG.defaultZoom);
     L.tileLayer(MAP_CONFIG.tileUrl,{maxZoom:19,attribution:MAP_CONFIG.attribution}).addTo(runMap);
     routeLine=L.polyline([],{color:'#ccff00',weight:5,opacity:.9,lineCap:'round'}).addTo(runMap);
     runMap.on('click',e=>{if(state.run)return toast('러닝 중에는 목적지를 변경할 수 없어요.');const p=[e.latlng.lat,e.latlng.lng];if(destinationMarker)destinationMarker.setLatLng(p);else destinationMarker=L.marker(p).addTo(runMap);$('#endPoint').value=`${p[0].toFixed(5)}, ${p[1].toFixed(5)}`;toast('지도에서 목적지를 지정했습니다.')});
+    if('ResizeObserver' in window){mapResizeObserver=new ResizeObserver(refreshRunMap);mapResizeObserver.observe($('#runMap'))}
     mapInitialized=true;setMapStatus('GPS 준비 완료')
   }
-  setTimeout(()=>runMap.invalidateSize(),20)
+  requestAnimationFrame(refreshRunMap);
+  setTimeout(refreshRunMap,180);
+  setTimeout(refreshRunMap,360)
 }
 function haversineKm(a,b){const toRad=n=>n*Math.PI/180,R=6371,dLat=toRad(b.lat-a.lat),dLng=toRad(b.lng-a.lng),s=Math.sin(dLat/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(s))}
 function renderRunMetrics(){const pace=state.km>0?state.seconds/state.km:0;$('#distance').textContent=state.km.toFixed(2);$('#runTime').textContent=formatTime(state.seconds);$('#runCalories').textContent=Math.round(state.km*72);$('#pace').textContent=pace?`${Math.floor(pace/60)}'${String(Math.floor(pace%60)).padStart(2,'0')}"`:`--'--"`}

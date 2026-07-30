@@ -63,7 +63,7 @@
     <section class="screen" id="workout">
       <div class="big-select segmented"><button class="active" data-sub="running"><i class="fa-solid fa-person-running"></i>러닝</button><button data-sub="gym"><i class="fa-solid fa-dumbbell"></i>헬스</button></div>
       <div class="panel active" id="running">
-        <div class="card metric-main"><div class="eyebrow">LIVE RUN</div><div class="distance" id="distance">0.00</div><div class="unit">KILOMETERS</div><div class="run-grid"><div><strong id="runTime">00:00</strong><small>시간</small></div><div><strong id="pace">--'--"</strong><small>현재 페이스</small></div><div><strong id="runCalories">0</strong><small>소모 kcal</small></div></div><div class="run-reward-preview"><div class="run-reward-head"><span><i class="fa-solid fa-coins"></i> 러닝 리워드</span><strong id="runRewardPreview">0 P 예정</strong></div><small id="runRewardNote">유효한 GPS 러닝 완료 시 1 kcal가 1P로 자동 적립됩니다.</small></div></div>
+        <div class="card metric-main"><div class="eyebrow">LIVE RUN</div><div class="distance" id="distance">0.00</div><div class="unit">KILOMETERS</div><div class="run-grid"><div><strong id="runTime">00:00</strong><small>시간</small></div><div><strong id="pace">--'--"</strong><small>실시간 페이스</small></div><div><strong id="runCalories">0</strong><small>소모 kcal</small></div></div><div class="run-reward-preview"><div class="run-reward-head"><span><i class="fa-solid fa-coins"></i> 러닝 리워드</span><strong id="runRewardPreview">0 P 예정</strong></div><small id="runRewardNote">유효한 GPS 러닝 완료 시 1 kcal가 1P로 자동 적립됩니다.</small></div></div>
         <div class="card map-card"><div class="map-head"><strong><i class="fa-solid fa-location-dot" style="color:var(--acid)"></i> 실시간 러닝 맵</strong><span class="map-status" id="mapStatus">지도 준비 중</span></div><div id="runMap" aria-label="실시간 러닝 경로 지도"></div><div class="map-hint">현재 위치와 이동 경로가 지도에 표시됩니다. 지도를 탭하면 목적지를 지정할 수 있어요.</div></div>
         <div class="card"><div class="field"><label>출발지</label><input class="input" id="startPoint" placeholder="GPS로 현재 위치를 확인합니다"></div><div class="field"><label>목적지</label><input class="input" id="endPoint" placeholder="입력하거나 지도를 탭하세요"></div><div class="actions"><button class="btn acid" id="runStart">뛰기 시작</button><button class="btn danger" id="runStop" disabled>중단</button></div><p style="font-size:10px;color:var(--muted);margin:12px 2px 0">위치 권한이 없으면 수원 중심의 데모 경로로 안전하게 전환됩니다.</p></div>
       </div>
@@ -110,14 +110,31 @@ function localDateKey(date=new Date()){return `${date.getFullYear()}-${String(da
 const STORAGE_KEY='earnfit-profile-v1', todayKey=localDateKey();
 function loadProfile(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
 const savedProfile=loadProfile(), activityIsToday=savedProfile.activityDate===todayKey;
-const state={points:Number.isFinite(savedProfile.points)?savedProfile.points:2500,checked:savedProfile.checkinDate===todayKey,run:null,seconds:0,km:0,gymDay:0,workout:0,set:1,timer:null,dietDay:0,rank:'national',anomaly:false,demoMode:false,lastRunReward:0,workoutComplete:false,rewardLedger:savedProfile.rewardLedger||{},runRewardHistory:Array.isArray(savedProfile.runRewardHistory)?savedProfile.runRewardHistory:[],todayGymCalories:activityIsToday?(savedProfile.todayGymCalories||0):0,todayRunCalories:activityIsToday?(savedProfile.todayRunCalories||0):0,todayRunKm:activityIsToday?(savedProfile.todayRunKm||0):0,todayEarnedPoints:activityIsToday&&Number.isFinite(savedProfile.todayEarnedPoints)?savedProfile.todayEarnedPoints:180};
+const state={points:Number.isFinite(savedProfile.points)?savedProfile.points:2500,checked:savedProfile.checkinDate===todayKey,run:null,seconds:0,km:0,currentSpeedKmh:0,currentPaceSec:0,lastMovementAt:0,gymDay:0,workout:0,set:1,timer:null,dietDay:0,rank:'national',anomaly:false,demoMode:false,lastRunReward:0,workoutComplete:false,rewardLedger:savedProfile.rewardLedger||{},runRewardHistory:Array.isArray(savedProfile.runRewardHistory)?savedProfile.runRewardHistory:[],todayGymCalories:activityIsToday?(savedProfile.todayGymCalories||0):0,todayRunCalories:activityIsToday?(savedProfile.todayRunCalories||0):0,todayRunKm:activityIsToday?(savedProfile.todayRunKm||0):0,todayEarnedPoints:activityIsToday&&Number.isFinite(savedProfile.todayEarnedPoints)?savedProfile.todayEarnedPoints:180};
 const titles={workout:'운동',diet:'식단관리',home:'홈',store:'스토어',group:'그룹'};
 const MAP_CONFIG={provider:'openstreetmap',apiKey:'',defaultCenter:[37.2636,127.0286],defaultZoom:15,tileUrl:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',attribution:'&copy; OpenStreetMap contributors'};
-let runMap=null,runnerMarker=null,destinationMarker=null,routeLine=null,watchId=null,lastPosition=null,routePoints=[],mapInitialized=false,mapResizeObserver=null;
+const MAX_RUN_SPEED_KMH=30,MAX_GPS_ACCURACY_M=50,PACE_WINDOW_MS=12000,STATIONARY_TIMEOUT_MS=5000;
+let runMap=null,runnerMarker=null,destinationMarker=null,routeLine=null,watchId=null,gpsFixTimeout=null,lastPosition=null,routePoints=[],paceSamples=[],mapInitialized=false,mapResizeObserver=null;
 function persistState(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify({points:state.points,checkinDate:state.checked?todayKey:null,rewardLedger:state.rewardLedger,runRewardHistory:state.runRewardHistory,activityDate:todayKey,todayGymCalories:state.todayGymCalories,todayRunCalories:state.todayRunCalories,todayRunKm:state.todayRunKm,todayEarnedPoints:state.todayEarnedPoints}))}catch{}}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._id);t._id=setTimeout(()=>t.classList.remove('show'),2600)}
 function updatePoints(){$('#points').textContent=state.points.toLocaleString('ko-KR')}
 function runningCalories(km){return Math.max(0,Math.round(km*72))}
+function formatPace(paceSec){
+  if(!Number.isFinite(paceSec)||paceSec<=0)return `--'--"`;
+  const rounded=Math.round(paceSec);
+  return `${Math.floor(rounded/60)}'${String(rounded%60).padStart(2,'0')}"`
+}
+function updateCurrentPace(speedKmh,timestamp=Date.now()){
+  if(!Number.isFinite(speedKmh)||speedKmh<1.5||speedKmh>MAX_RUN_SPEED_KMH)return;
+  paceSamples.push({speed:speedKmh,timestamp});
+  paceSamples=paceSamples.filter(sample=>timestamp-sample.timestamp<=PACE_WINDOW_MS).slice(-10);
+  const weighted=paceSamples.reduce((sum,sample,index)=>{const weight=index+1;sum.speed+=sample.speed*weight;sum.weight+=weight;return sum},{speed:0,weight:0});
+  state.currentSpeedKmh=weighted.speed/weighted.weight;
+  state.currentPaceSec=3600/state.currentSpeedKmh;
+  state.lastMovementAt=timestamp
+}
+function clearCurrentPace(){state.currentSpeedKmh=0;state.currentPaceSec=0;state.lastMovementAt=0;paceSamples=[]}
+function refreshStationaryPace(now=Date.now()){if(state.lastMovementAt&&now-state.lastMovementAt>=STATIONARY_TIMEOUT_MS)clearCurrentPace()}
 function renderActivitySummary(){$('#homeKcal').textContent=486+state.todayGymCalories+state.todayRunCalories;$('#homeKm').textContent=(4.82+state.todayRunKm).toFixed(2);$('#homePointsToday').textContent=state.todayEarnedPoints.toLocaleString('ko-KR')}
 $$('nav button').forEach(b=>b.onclick=()=>{$$('nav button,.screen').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.tab).classList.add('active');$('#pageTitle').textContent=titles[b.dataset.tab];document.querySelector('.phone').scrollTo({top:0,behavior:'smooth'});if(b.dataset.tab==='workout')setTimeout(ensureRunMap,80)});
 $$('.big-select button').forEach(b=>b.onclick=()=>{$$('.big-select button,.big-select~.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$('#'+b.dataset.sub).classList.add('active');if(b.dataset.sub==='running')setTimeout(ensureRunMap,80)});
@@ -144,34 +161,65 @@ function ensureRunMap(){
   setTimeout(refreshRunMap,360)
 }
 function haversineKm(a,b){const toRad=n=>n*Math.PI/180,R=6371,dLat=toRad(b.lat-a.lat),dLng=toRad(b.lng-a.lng),s=Math.sin(dLat/2)**2+Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(s))}
-function renderRunMetrics(){const pace=state.km>0?state.seconds/state.km:0,kcal=runningCalories(state.km);$('#distance').textContent=state.km.toFixed(2);$('#runTime').textContent=formatTime(state.seconds);$('#runCalories').textContent=kcal;$('#pace').textContent=pace?`${Math.floor(pace/60)}'${String(Math.floor(pace%60)).padStart(2,'0')}"`:`--'--"`;$('#runRewardPreview').textContent=state.lastRunReward?`${state.lastRunReward.toLocaleString('ko-KR')} P 적립 완료`:state.demoMode?'포인트 적립 제외':`${kcal.toLocaleString('ko-KR')} P 예정`;$('#runRewardNote').textContent=state.demoMode?'데모 경로는 실제 GPS 기록이 아니므로 포인트가 적립되지 않습니다.':'유효한 GPS 러닝 완료 시 1 kcal가 1P로 자동 적립됩니다.'}
+function renderRunMetrics(){const kcal=runningCalories(state.km);$('#distance').textContent=state.km.toFixed(2);$('#runTime').textContent=formatTime(state.seconds);$('#runCalories').textContent=kcal;$('#pace').textContent=formatPace(state.currentPaceSec);$('#runRewardPreview').textContent=state.lastRunReward?`${state.lastRunReward.toLocaleString('ko-KR')} P 적립 완료`:state.demoMode?'포인트 적립 제외':`${kcal.toLocaleString('ko-KR')} P 예정`;$('#runRewardNote').textContent=state.demoMode?'데모 경로는 실제 GPS 기록이 아니므로 포인트가 적립되지 않습니다. GPS가 연결되면 실제 기록으로 자동 전환됩니다.':'유효한 GPS 러닝 완료 시 1 kcal가 1P로 자동 적립됩니다.'}
 function addRoutePoint(point,fromDemo=false){
+  if(Number.isFinite(point.accuracy)&&point.accuracy>MAX_GPS_ACCURACY_M){setMapStatus(`GPS 오차 ${Math.round(point.accuracy)}m · 신호 재탐색`,'warn');return false}
+  let moved=false,liveSpeed=0;
   if(lastPosition){
-    const segment=haversineKm(lastPosition,point),elapsed=Math.max(1,(point.timestamp-lastPosition.timestamp)/1000),segmentSpeed=segment/(elapsed/3600);
-    if(segmentSpeed>30){state.anomaly=true;setMapStatus('비정상 속도 감지','warn');return}
-    if(segment>=.003&&segment<.25)state.km+=segment
+    const elapsed=(point.timestamp-lastPosition.timestamp)/1000;
+    if(elapsed<=0)return false;
+    const segment=haversineKm(lastPosition,point),segmentSpeed=segment/(elapsed/3600);
+    if(segmentSpeed>MAX_RUN_SPEED_KMH){state.anomaly=true;setMapStatus('비정상 속도 감지','warn');return false}
+    const sensorSpeed=Number.isFinite(point.speed)?point.speed*3.6:0;
+    const accuracy=Math.max(point.accuracy||0,lastPosition.accuracy||0);
+    const noiseFloorKm=Math.max(.0015,Math.min(.004,accuracy*.25/1000));
+    if(segment>=noiseFloorKm&&segment<.25){
+      state.km+=segment;moved=true;
+      liveSpeed=sensorSpeed>=1.5&&sensorSpeed<=MAX_RUN_SPEED_KMH?sensorSpeed*.55+segmentSpeed*.45:segmentSpeed
+    }else if(sensorSpeed>=1.5&&sensorSpeed<=MAX_RUN_SPEED_KMH){
+      liveSpeed=sensorSpeed
+    }
   }
-  lastPosition=point;routePoints.push([point.lat,point.lng]);if(routeLine)routeLine.setLatLngs(routePoints);
-  if(runMap){if(runnerMarker)runnerMarker.setLatLng([point.lat,point.lng]);else runnerMarker=L.circleMarker([point.lat,point.lng],{radius:8,color:'#fff',weight:4,fillColor:'#ccff00',fillOpacity:1}).addTo(runMap);runMap.panTo([point.lat,point.lng],{animate:true})}
-  if(!$('#startPoint').value)$('#startPoint').value=fromDemo?'데모 출발점 · 수원':'현재 GPS 위치';renderRunMetrics()
+  lastPosition=point;
+  if(liveSpeed)updateCurrentPace(liveSpeed,point.timestamp);
+  if(!routePoints.length||moved){
+    routePoints.push([point.lat,point.lng]);if(routeLine)routeLine.setLatLngs(routePoints);
+    if(runMap){if(runnerMarker)runnerMarker.setLatLng([point.lat,point.lng]);else runnerMarker=L.circleMarker([point.lat,point.lng],{radius:8,color:'#fff',weight:4,fillColor:'#ccff00',fillOpacity:1}).addTo(runMap);runMap.panTo([point.lat,point.lng],{animate:true})}
+  }
+  if(!$('#startPoint').value)$('#startPoint').value=fromDemo?'데모 출발점 · 수원':'현재 GPS 위치';renderRunMetrics();return true
 }
-function addDemoPoint(){const base=routePoints.length?routePoints[routePoints.length-1]:MAP_CONFIG.defaultCenter,point={lat:base[0]+.000018,lng:base[1]+.000028,timestamp:Date.now()};if(!lastPosition){addRoutePoint(point,true);return}state.km+=.003;lastPosition=point;routePoints.push([point.lat,point.lng]);if(routeLine)routeLine.setLatLngs(routePoints);if(runnerMarker)runnerMarker.setLatLng([point.lat,point.lng]);else if(runMap)runnerMarker=L.circleMarker([point.lat,point.lng],{radius:8,color:'#fff',weight:4,fillColor:'#ccff00',fillOpacity:1}).addTo(runMap);if(runMap)runMap.panTo([point.lat,point.lng],{animate:true});renderRunMetrics()}
+function addDemoPoint(){
+  const demoSpeed=Math.max(7.5,10.5+Math.sin(state.seconds/3.2)*2.2+Math.sin(state.seconds/1.7)*.6),segmentKm=demoSpeed/3600,scale=segmentKm/.003;
+  const base=routePoints.length?routePoints[routePoints.length-1]:MAP_CONFIG.defaultCenter,point={lat:base[0]+.000018*scale,lng:base[1]+.000028*scale,timestamp:Date.now(),accuracy:8,speed:demoSpeed/3.6};
+  if(lastPosition)state.km+=segmentKm;
+  lastPosition=point;updateCurrentPace(demoSpeed,point.timestamp);routePoints.push([point.lat,point.lng]);if(routeLine)routeLine.setLatLngs(routePoints);
+  if(runnerMarker)runnerMarker.setLatLng([point.lat,point.lng]);else if(runMap)runnerMarker=L.circleMarker([point.lat,point.lng],{radius:8,color:'#fff',weight:4,fillColor:'#ccff00',fillOpacity:1}).addTo(runMap);
+  if(runMap)runMap.panTo([point.lat,point.lng],{animate:true});if(!$('#startPoint').value)$('#startPoint').value='데모 출발점 · 수원';renderRunMetrics()
+}
 function startDemoMode(){if(state.demoMode)return;state.demoMode=true;setMapStatus('데모 경로 추적','warn');addDemoPoint()}
 function startLocationTracking(){
   if(!navigator.geolocation)return startDemoMode();
   setMapStatus('GPS 연결 중');
-  let fixTimeout=setTimeout(()=>{if(!lastPosition)startDemoMode()},7000);
-  watchId=navigator.geolocation.watchPosition(pos=>{if(state.demoMode)return;clearTimeout(fixTimeout);const p={lat:pos.coords.latitude,lng:pos.coords.longitude,timestamp:pos.timestamp||Date.now()};addRoutePoint(p);setMapStatus('GPS 실시간','live')},()=>{clearTimeout(fixTimeout);startDemoMode()},{enableHighAccuracy:true,maximumAge:1000,timeout:6000})
+  gpsFixTimeout=setTimeout(()=>{if(state.run&&!lastPosition)startDemoMode()},20000);
+  watchId=navigator.geolocation.watchPosition(pos=>{
+    const p={lat:pos.coords.latitude,lng:pos.coords.longitude,timestamp:pos.timestamp||Date.now(),accuracy:pos.coords.accuracy,speed:pos.coords.speed};
+    const accurateFix=!Number.isFinite(p.accuracy)||p.accuracy<=MAX_GPS_ACCURACY_M;
+    if(state.demoMode&&accurateFix){resetRunRoute();$('#startPoint').value='';toast('GPS 연결 성공! 데모 기록을 지우고 실제 러닝을 시작합니다.')}
+    if(addRoutePoint(p)){clearTimeout(gpsFixTimeout);gpsFixTimeout=null;setMapStatus(`GPS 실시간 · 오차 ${Math.round(p.accuracy||0)}m`,'live')}
+  },error=>{
+    if(error.code===1){clearTimeout(gpsFixTimeout);gpsFixTimeout=null;startDemoMode()}
+    else setMapStatus('GPS 신호 재탐색 중','warn')
+  },{enableHighAccuracy:true,maximumAge:0,timeout:12000})
 }
-function stopLocationTracking(){if(watchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(watchId);watchId=null}}
-function updateRun(){state.seconds++;if(state.demoMode)addDemoPoint();renderRunMetrics()}
-function resetRunRoute(){state.seconds=0;state.km=0;state.anomaly=false;state.demoMode=false;state.lastRunReward=0;lastPosition=null;routePoints=[];if(routeLine)routeLine.setLatLngs([]);if(runnerMarker&&runMap){runMap.removeLayer(runnerMarker);runnerMarker=null}renderRunMetrics()}
+function stopLocationTracking(){if(gpsFixTimeout){clearTimeout(gpsFixTimeout);gpsFixTimeout=null}if(watchId!==null&&navigator.geolocation){navigator.geolocation.clearWatch(watchId);watchId=null}}
+function updateRun(){state.seconds++;if(state.demoMode)addDemoPoint();else{refreshStationaryPace();renderRunMetrics()}}
+function resetRunRoute(){state.seconds=0;state.km=0;state.anomaly=false;state.demoMode=false;state.lastRunReward=0;clearCurrentPace();lastPosition=null;routePoints=[];if(routeLine)routeLine.setLatLngs([]);if(runnerMarker&&runMap){runMap.removeLayer(runnerMarker);runnerMarker=null}renderRunMetrics()}
 $('#runStart').onclick=()=>{if(!$('#endPoint').value.trim())return toast('목적지를 입력하거나 지도에서 지정해 주세요.');if(state.run)return;ensureRunMap();resetRunRoute();state.run=setInterval(updateRun,1000);startLocationTracking();$('#runStart').disabled=true;$('#runStop').disabled=false;toast('GPS 러닝 기록을 시작합니다!')};
 $('#runStop').onclick=()=>{
   if(!state.run)return;
   clearInterval(state.run);state.run=null;stopLocationTracking();$('#runStart').disabled=false;$('#runStop').disabled=true;
-  const speed=state.km/(Math.max(1,state.seconds)/3600),paceSec=state.km?state.seconds/state.km:0;
-  if(state.anomaly||speed>30||(paceSec>0&&paceSec<30)){resetRunRoute();setMapStatus('기록 무효','warn');alert('비정상적인 이동이 감지되었습니다. 기록과 포인트가 반영되지 않습니다.');return}
+  const speed=state.km/(Math.max(1,state.seconds)/3600),averagePaceSec=state.km?state.seconds/state.km:0;
+  if(state.anomaly||speed>MAX_RUN_SPEED_KMH||(averagePaceSec>0&&averagePaceSec<30)){resetRunRoute();setMapStatus('기록 무효','warn');alert('비정상적인 이동이 감지되었습니다. 기록과 포인트가 반영되지 않습니다.');return}
   if(state.km<.01){setMapStatus('GPS 준비 완료');return toast('기록할 이동 거리가 부족해 포인트가 적립되지 않았습니다.')}
   const kcal=runningCalories(state.km);
   if(state.demoMode){setMapStatus('데모 완료','warn');renderRunMetrics();return toast(`데모 완료 · ${kcal} kcal 예상 · 포인트 미적립`)}
@@ -179,7 +227,7 @@ $('#runStop').onclick=()=>{
   state.runRewardHistory.unshift({id:`run-${Date.now()}`,distanceKm:Number(state.km.toFixed(3)),seconds:state.seconds,kcal,points:kcal,earnedAt:new Date().toISOString()});
   if(state.runRewardHistory.length>20)state.runRewardHistory.length=20;
   persistState();updatePoints();renderActivitySummary();renderRunMetrics();setMapStatus('리워드 적립 완료','live');
-  toast(`러닝 완료 · ${kcal} kcal · +${kcal}P 적립! 평균 ${Math.floor(paceSec/60)}분 ${Math.floor(paceSec%60)}초/km`)
+  toast(`러닝 완료 · ${kcal} kcal · +${kcal}P 적립! 평균 ${Math.floor(averagePaceSec/60)}분 ${Math.floor(averagePaceSec%60)}초/km`)
 };
 
 const plans=[

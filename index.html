@@ -88,7 +88,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-const STORAGE_KEY='earnfit-profile-v1', todayKey=new Date().toISOString().slice(0,10);
+function localDateKey(date=new Date()){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`}
+const STORAGE_KEY='earnfit-profile-v1', todayKey=localDateKey();
 function loadProfile(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}')}catch{return {}}}
 const savedProfile=loadProfile(), activityIsToday=savedProfile.activityDate===todayKey;
 const state={points:Number.isFinite(savedProfile.points)?savedProfile.points:2500,checked:savedProfile.checkinDate===todayKey,run:null,seconds:0,km:0,gymDay:0,workout:0,set:1,timer:null,dietDay:0,rank:'national',anomaly:false,demoMode:false,workoutComplete:false,rewardLedger:savedProfile.rewardLedger||{},todayGymCalories:activityIsToday?(savedProfile.todayGymCalories||0):0};

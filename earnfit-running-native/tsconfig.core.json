@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "target": "es2022",
+    "rootDir": "./src",
+    "outDir": "./.test-dist",
+    "noEmit": false
+  },
+  "include": [
+    "src/constants/tracking.ts",
+    "src/types/run.ts",
+    "src/domain/locationMath.ts",
+    "src/domain/locationFilter.ts"
+  ]
+}
